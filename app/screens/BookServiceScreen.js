@@ -13,8 +13,8 @@ export default function BookServiceScreen({ navigation, route }) {
   const [loading, setLoading] = useState(false);
 
   const handleBooking = async () => {
-    if (!address) {
-      Alert.alert('Error', 'Please enter your address');
+    if (address.trim().length < 5) {
+      Alert.alert('Error', 'Please enter your full address');
       return;
     }
 
@@ -22,37 +22,42 @@ export default function BookServiceScreen({ navigation, route }) {
     try {
       const response = await api.post('/bookings', {
         service_id: service.id,
-        address,
+        address: address.trim(),
         latitude: 33.5651,
         longitude: 73.0169,
         notes,
       });
 
-      const { booking, worker } = response.data;
+      const { worker } = response.data;
 
       setLoading(false);
 
-      if (worker) {
-        Alert.alert(
-          '🎉 Booking Confirmed!',
-          `Worker: ${worker.name}\nTrade: ${worker.trade}\nLevel: ${worker.level}\nRating: ⭐ ${worker.rating || 'New'}\n\nWo jald hi aapke paas pohunchenge!`,
-          [
-            {
-              text: 'OK',
-              onPress: () => navigation.navigate('MyBookings')
-            }
-          ]
-        );
-      } else {
-        Alert.alert(
-          '✅ Booking Created!',
-          'Abhi koi worker available nahi hai. Hum aapko jald hi worker assign karenge!',
-          [{ text: 'OK', onPress: () => navigation.navigate('MyBookings') }]
-        );
-      }
+      Alert.alert(
+        '🎉 Booking Confirmed!',
+        `Worker: ${worker.name}\nTrade: ${worker.trade}\nLevel: ${worker.level}\nRating: ⭐ ${worker.rating || 'New'}\n\nWo jald hi aapke paas pohunchenge!`,
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.navigate('MyBookings')
+          }
+        ]
+      );
     } catch (error) {
       setLoading(false);
-      Alert.alert('Error', error.response?.data?.message || 'Booking failed');
+      const data = error.response?.data;
+
+      if (data?.code === 'NO_WORKER_AVAILABLE') {
+        // Nothing was booked - the server found no free worker for this trade.
+        Alert.alert(
+          'No worker available right now',
+          `${data.message}\n\nAbhi koi ${service.category} free nahi hai. Thori der baad dobara try karein.`,
+          [{ text: 'OK' }]
+        );
+      } else if (error.response?.status === 401) {
+        Alert.alert('Session expired', 'Please log out and log in again.');
+      } else {
+        Alert.alert('Error', data?.message || 'Booking failed. Check your internet and try again.');
+      }
     }
   };
 
