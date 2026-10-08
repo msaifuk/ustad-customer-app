@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, StyleSheet,
-  ActivityIndicator, RefreshControl, TouchableOpacity
+  ActivityIndicator, RefreshControl, TouchableOpacity, Alert
 } from 'react-native';
 import api from '../utils/api';
 
@@ -49,6 +49,28 @@ export default function MyBookingsScreen({ navigation }) {
   const onRefresh = () => {
     setRefreshing(true);
     fetchBookings();
+  };
+
+  const cancelBooking = (booking) => {
+    Alert.alert(
+      'Cancel booking?',
+      'Kya aap yeh booking cancel karna chahte hain?',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Yes, cancel',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.put(`/bookings/${booking.id}/cancel`, { reason: 'Cancelled by customer' });
+              fetchBookings();
+            } catch (error) {
+              Alert.alert('Error', error.response?.data?.message || 'Could not cancel the booking');
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (loading) {
@@ -125,6 +147,19 @@ export default function MyBookingsScreen({ navigation }) {
                   🕐 {new Date(booking.created_at).toLocaleDateString('en-PK')}
                 </Text>
               </View>
+
+              {booking.status === 'cancelled' && booking.cancel_reason ? (
+                <Text style={styles.cancelReason}>{booking.cancel_reason}</Text>
+              ) : null}
+
+              {(booking.status === 'pending' || booking.status === 'accepted') && (
+                <TouchableOpacity
+                  style={styles.cancelBtn}
+                  onPress={() => cancelBooking(booking)}
+                >
+                  <Text style={styles.cancelBtnText}>Cancel Booking</Text>
+                </TouchableOpacity>
+              )}
 
               {booking.status === 'completed' && (
                 <TouchableOpacity
@@ -258,6 +293,25 @@ const styles = StyleSheet.create({
     color: '#f59e0b',
     fontWeight: '600',
     fontSize: 14,
+  },
+  cancelBtn: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 10,
+    alignItems: 'center',
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#ef4444',
+  },
+  cancelBtnText: {
+    color: '#ef4444',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  cancelReason: {
+    color: '#ef4444',
+    fontSize: 12,
+    marginTop: 8,
   },
   bottomSpace: {
     height: 40,
